@@ -76,9 +76,12 @@ module ibex_prefetch_buffer #(
   assign fifo_clear = branch_i;
 
   // Reversed version of rdata_outstanding_q which can be overlaid with fifo fill state
-  for (genvar i = 0; i < NUM_REQS; i++) begin : gen_rd_rev
+generate
+genvar i;
+  for (i = 0; i < NUM_REQS; i++) begin : gen_rd_rev
     assign rdata_outstanding_rev[i] = rdata_outstanding_q[NUM_REQS-1-i];
   end
+endgenerate
 
   // The fifo is ready to accept a new request if it is not full - including space reserved for
   // requests already outstanding.
@@ -147,6 +150,7 @@ module ibex_prefetch_buffer #(
   assign stored_addr_d = instr_addr;
 
   // CPU resets with a branch, so no need to reset these addresses
+generate
   if (ResetAll) begin : g_stored_addr_ra
     always_ff @(posedge clk_i or negedge rst_ni) begin
       if (!rst_ni) begin
@@ -162,6 +166,7 @@ module ibex_prefetch_buffer #(
       end
     end
   end
+endgenerate
   // 2. fetch_addr_q
 
   // Update on a branch or as soon as a request is issued
@@ -171,6 +176,7 @@ module ibex_prefetch_buffer #(
                         // Current address + 4
                         {{29{1'b0}},(valid_new_req & ~valid_req_q),2'b00};
 
+generate
   if (ResetAll) begin : g_fetch_addr_ra
     always_ff @(posedge clk_i or negedge rst_ni) begin
       if (!rst_ni) begin
@@ -186,6 +192,7 @@ module ibex_prefetch_buffer #(
       end
     end
   end
+endgenerate
 
   // Address mux
   assign instr_addr = valid_req_q ? stored_addr_q :
@@ -197,8 +204,8 @@ module ibex_prefetch_buffer #(
   ///////////////////////////////
   // Request outstanding queue //
   ///////////////////////////////
-
-  for (genvar i = 0; i < NUM_REQS; i++) begin : g_outstanding_reqs
+generate
+  for (i = 0; i < NUM_REQS; i++) begin : g_outstanding_reqs
     // Request 0 (always the oldest outstanding request)
     if (i == 0) begin : g_req0
       // A request becomes outstanding once granted, and is cleared once the rvalid is received.
@@ -224,6 +231,7 @@ module ibex_prefetch_buffer #(
                                       branch_discard_q[i];
     end
   end
+endgenerate
 
   // Shift the entries down on each instr_rvalid_i
   assign rdata_outstanding_s = instr_rvalid_i ? {1'b0,rdata_outstanding_n[NUM_REQS-1:1]} :

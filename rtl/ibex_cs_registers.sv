@@ -324,6 +324,7 @@ module ibex_cs_registers #(
   assign mip.irq_external = irq_external_i;
   assign mip.irq_fast     = irq_fast_i;
 
+generate
   // read logic
   always_comb begin
     csr_rdata_int = '0;
@@ -550,15 +551,31 @@ module ibex_cs_registers #(
     endcase
 
     if (!PMPEnable) begin
-      if (csr_addr inside {CSR_PMPCFG0,   CSR_PMPCFG1,   CSR_PMPCFG2,   CSR_PMPCFG3,
-                           CSR_PMPADDR0,  CSR_PMPADDR1,  CSR_PMPADDR2,  CSR_PMPADDR3,
-                           CSR_PMPADDR4,  CSR_PMPADDR5,  CSR_PMPADDR6,  CSR_PMPADDR7,
-                           CSR_PMPADDR8,  CSR_PMPADDR9,  CSR_PMPADDR10, CSR_PMPADDR11,
-                           CSR_PMPADDR12, CSR_PMPADDR13, CSR_PMPADDR14, CSR_PMPADDR15}) begin
+      if ((csr_addr == CSR_PMPCFG0) ||
+          (csr_addr == CSR_PMPCFG1) ||
+          (csr_addr == CSR_PMPCFG2) ||
+          (csr_addr == CSR_PMPCFG3) ||
+          (csr_addr == CSR_PMPADDR0) ||
+          (csr_addr == CSR_PMPADDR1) ||
+          (csr_addr == CSR_PMPADDR2) ||
+          (csr_addr == CSR_PMPADDR3) ||
+          (csr_addr == CSR_PMPADDR4) ||
+          (csr_addr == CSR_PMPADDR5) ||
+          (csr_addr == CSR_PMPADDR6) ||
+          (csr_addr == CSR_PMPADDR7) ||
+          (csr_addr == CSR_PMPADDR8) ||
+          (csr_addr == CSR_PMPADDR9) ||
+          (csr_addr == CSR_PMPADDR10) ||
+          (csr_addr == CSR_PMPADDR11) ||
+          (csr_addr == CSR_PMPADDR12) ||
+          (csr_addr == CSR_PMPADDR13) ||
+          (csr_addr == CSR_PMPADDR14) ||
+          (csr_addr == CSR_PMPADDR15)) begin
         illegal_csr = 1'b1;
       end
     end
   end
+endgenerate
 
   // write logic
   always_comb begin
@@ -831,7 +848,7 @@ module ibex_cs_registers #(
     endcase
   end
 
-  assign csr_wr = (csr_op_i inside {CSR_OP_WRITE, CSR_OP_SET, CSR_OP_CLEAR});
+  assign csr_wr = ((csr_op_i == CSR_OP_WRITE) || (csr_op_i == CSR_OP_SET) || (csr_op_i == CSR_OP_CLEAR) );
 
   // only write CSRs during one clock cycle
   assign csr_we_int  = csr_wr & csr_op_en_i & ~illegal_csr_insn_o;
@@ -1074,7 +1091,8 @@ module ibex_cs_registers #(
   // -----------------
   // PMP registers
   // -----------------
-
+generate
+genvar i;
   if (PMPEnable) begin : g_pmp_registers
     pmp_mseccfg_t                pmp_mseccfg_q, pmp_mseccfg_d;
     logic                        pmp_mseccfg_we;
@@ -1091,7 +1109,7 @@ module ibex_cs_registers #(
     logic                        any_pmp_entry_locked;
 
     // Expanded / qualified register read data
-    for (genvar i = 0; i < PMP_MAX_REGIONS; i++) begin : g_exp_rd_data
+    for (i = 0; i < PMP_MAX_REGIONS; i++) begin : g_exp_rd_data
       if (i < PMPNumRegions) begin : g_implemented_regions
         // Add in zero padding for reserved fields
         assign pmp_cfg_rdata[i] = {pmp_cfg[i].lock, 2'b00, pmp_cfg[i].mode,
@@ -1132,7 +1150,8 @@ module ibex_cs_registers #(
     end
 
     // Write data calculation
-    for (genvar i = 0; i < PMPNumRegions; i++) begin : g_pmp_csrs
+    genvar i;
+    for (i = 0; i < PMPNumRegions; i++) begin : g_pmp_csrs
       // -------------------------
       // Instantiate cfg registers
       // -------------------------
@@ -1247,17 +1266,20 @@ module ibex_cs_registers #(
 
   end else begin : g_no_pmp_tieoffs
     // Generate tieoffs when PMP is not configured
-    for (genvar i = 0; i < PMP_MAX_REGIONS; i++) begin : g_rdata
+    //genvar i;
+    for (i = 0; i < PMP_MAX_REGIONS; i++) begin : g_rdata
       assign pmp_addr_rdata[i] = '0;
       assign pmp_cfg_rdata[i]  = '0;
     end
-    for (genvar i = 0; i < PMPNumRegions; i++) begin : g_outputs
+    //genvar i;
+    for (i = 0; i < PMPNumRegions; i++) begin : g_outputs
       assign csr_pmp_cfg_o[i]  = pmp_cfg_t'(1'b0);
       assign csr_pmp_addr_o[i] = '0;
     end
     assign pmp_csr_err = 1'b0;
     assign pmp_mseccfg = '0;
   end
+endgenerate
 
   assign csr_pmp_mseccfg_o = pmp_mseccfg;
 
@@ -1368,7 +1390,9 @@ module ibex_cs_registers #(
   assign unused_mhpmcounter_incr_1 = mhpmcounter_incr[1];
 
   // Iterate through optionally included counters (MHPMCounterNum controls how many are included)
-  for (genvar i = 0; i < 29; i++) begin : gen_cntrs
+generate
+//genvar i;
+  for (i = 0; i < 29; i++) begin : gen_cntrs
     localparam int Cnt = i + 3;
 
     if (i < MHPMCounterNum) begin : gen_imp
@@ -1431,11 +1455,12 @@ module ibex_cs_registers #(
       mcountinhibit_q <= mcountinhibit_d;
     end
   end
+endgenerate
 
   /////////////////////////////
   // Debug trigger registers //
   /////////////////////////////
-
+generate
   if (DbgTriggerEn) begin : gen_trigger_regs
     localparam int unsigned DbgHwNumLen = DbgHwBreakNum > 1 ? $clog2(DbgHwBreakNum) : 1;
     localparam int unsigned MaxTselect = DbgHwBreakNum - 1;
@@ -1458,7 +1483,8 @@ module ibex_cs_registers #(
 
     // Write select
     assign tselect_we = csr_we_int & debug_mode_i & (csr_addr_i == CSR_TSELECT);
-    for (genvar i = 0; i < DbgHwBreakNum; i++) begin : g_dbg_tmatch_we
+    //genvar i;
+    for (i = 0; i < DbgHwBreakNum; i++) begin : g_dbg_tmatch_we
       assign tmatch_control_we[i] = (i[DbgHwNumLen-1:0] == tselect_q) & csr_we_int & debug_mode_i &
                                     (csr_addr_i == CSR_TDATA1);
       assign tmatch_value_we[i]   = (i[DbgHwNumLen-1:0] == tselect_q) & csr_we_int & debug_mode_i &
@@ -1488,7 +1514,7 @@ module ibex_cs_registers #(
       .rd_error_o()
     );
 
-    for (genvar i = 0; i < DbgHwBreakNum; i++) begin : g_dbg_tmatch_reg
+    for (i = 0; i < DbgHwBreakNum; i++) begin : g_dbg_tmatch_reg
       ibex_csr #(
         .Width     (1),
         .ShadowCopy(1'b0),
@@ -1553,7 +1579,7 @@ module ibex_cs_registers #(
 
     // Breakpoint matching
     // We match against the next address, as the breakpoint must be taken before execution
-    for (genvar i = 0; i < DbgHwBreakNum; i++) begin : g_dbg_trigger_match
+    for (i = 0; i < DbgHwBreakNum; i++) begin : g_dbg_trigger_match
       assign trigger_match[i] = tmatch_control_q[i] & (pc_if_i[31:0] == tmatch_value_q[i]);
     end
     assign trigger_match_o = |trigger_match;
@@ -1564,6 +1590,7 @@ module ibex_cs_registers #(
     assign tmatch_value_rdata   = 'b0;
     assign trigger_match_o      = 'b0;
   end
+endgenerate
 
   //////////////////////////
   // CPU control register //
@@ -1574,6 +1601,7 @@ module ibex_cs_registers #(
     cpu_ctrl_sts_part_t'(csr_wdata_int[$bits(cpu_ctrl_sts_part_t)-1:0]);
 
   // Generate fixed time execution bit
+generate
   if (DataIndTiming) begin : gen_dit
     // SEC_CM: CORE.DATA_REG_SW.SCA
     assign cpuctrlsts_part_wdata.data_ind_timing = cpuctrlsts_part_wdata_raw.data_ind_timing;
@@ -1586,10 +1614,12 @@ module ibex_cs_registers #(
     // field will always read as zero if not configured
     assign cpuctrlsts_part_wdata.data_ind_timing = 1'b0;
   end
+endgenerate
 
   assign data_ind_timing_o = cpuctrlsts_part_q.data_ind_timing;
 
   // Generate dummy instruction signals
+generate
   if (DummyInstructions) begin : gen_dummy
     // SEC_CM: CTRL_FLOW.UNPREDICTABLE
     assign cpuctrlsts_part_wdata.dummy_instr_en   = cpuctrlsts_part_wdata_raw.dummy_instr_en;
@@ -1612,11 +1642,13 @@ module ibex_cs_registers #(
     assign dummy_instr_seed_en_o             = 1'b0;
     assign dummy_instr_seed_o                = '0;
   end
+endgenerate
 
   assign dummy_instr_en_o   = cpuctrlsts_part_q.dummy_instr_en;
   assign dummy_instr_mask_o = cpuctrlsts_part_q.dummy_instr_mask;
 
   // Generate icache enable bit
+generate
   if (ICache) begin : gen_icache_enable
     assign cpuctrlsts_part_wdata.icache_enable = cpuctrlsts_part_wdata_raw.icache_enable;
 
@@ -1648,6 +1680,7 @@ module ibex_cs_registers #(
     assign cpuctrlsts_ic_scr_key_valid_q = 1'b0;
     assign cpuctrlsts_ic_scr_key_err     = 1'b0;
   end
+endgenerate
 
   assign cpuctrlsts_part_wdata.double_fault_seen = cpuctrlsts_part_wdata_raw.double_fault_seen;
   assign cpuctrlsts_part_wdata.sync_exc_seen     = cpuctrlsts_part_wdata_raw.sync_exc_seen;

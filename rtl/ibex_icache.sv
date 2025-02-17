@@ -216,6 +216,7 @@ module ibex_icache import ibex_pkg::*; #(
 
   assign prefetch_addr_en    = branch_i | lookup_grant_ic0;
 
+generate
   if (ResetAll) begin : g_prefetch_addr_ra
     always_ff @(posedge clk_i or negedge rst_ni) begin
       if (!rst_ni) begin
@@ -231,6 +232,7 @@ module ibex_icache import ibex_pkg::*; #(
       end
     end
   end
+endgenerate
 
   ////////////////////////
   // Pipeline stage IC0 //
@@ -276,6 +278,7 @@ module ibex_icache import ibex_pkg::*; #(
   assign data_write_ic0 = tag_write_ic0;
 
   // Append ECC checkbits to write data if required
+generate
   if (ICacheECC) begin : gen_ecc_wdata
     // SEC_CM: ICACHE.MEM.INTEGRITY
     // Tagram ECC
@@ -295,7 +298,8 @@ module ibex_icache import ibex_pkg::*; #(
     assign tag_wdata_ic0 = {tag_ecc_output_padded[27:22],tag_ecc_output_padded[IC_TAG_SIZE-1:0]};
 
     // Dataram ECC
-    for (genvar bank = 0; bank < IC_LINE_BEATS; bank++) begin : gen_ecc_banks
+    genvar bank;
+    for (bank = 0; bank < IC_LINE_BEATS; bank++) begin : gen_ecc_banks
       prim_secded_inv_39_32_enc data_ecc_enc (
         .data_i (fill_wdata_ic0[bank*BUS_SIZE+:BUS_SIZE]),
         .data_o (data_wdata_ic0[bank*BusSizeECC+:BusSizeECC])
@@ -306,6 +310,7 @@ module ibex_icache import ibex_pkg::*; #(
     assign tag_wdata_ic0  = fill_tag_ic0;
     assign data_wdata_ic0 = fill_wdata_ic0;
   end
+endgenerate
 
   ////////////////
   // IC0 -> IC1 //
@@ -337,6 +342,7 @@ module ibex_icache import ibex_pkg::*; #(
     end
   end
 
+generate
   if (ResetAll) begin : g_lookup_addr_ra
     always_ff @(posedge clk_i or negedge rst_ni) begin
       if (!rst_ni) begin
@@ -355,13 +361,16 @@ module ibex_icache import ibex_pkg::*; #(
       end
     end
   end
+endgenerate
 
   ////////////////////////
   // Pipeline stage IC1 //
   ////////////////////////
 
   // Tag matching
-  for (genvar way = 0; way < IC_NUM_WAYS; way++) begin : gen_tag_match
+generate
+genvar way;
+  for (way = 0; way < IC_NUM_WAYS; way++) begin : gen_tag_match
     assign tag_match_ic1[way]   = (tag_rdata_ic1[way][IC_TAG_SIZE-1:0] ==
                                    {1'b1,lookup_addr_ic1[ADDR_W-1:IC_INDEX_HI+1]});
     assign tag_invalid_ic1[way] = ~tag_rdata_ic1[way][IC_TAG_SIZE-1];
@@ -384,10 +393,12 @@ module ibex_icache import ibex_pkg::*; #(
   // 2 global round-robin (pseudorandom) way
   assign lowest_invalid_way_ic1[0] = tag_invalid_ic1[0];
   assign round_robin_way_ic1[0]    = round_robin_way_q[IC_NUM_WAYS-1];
-  for (genvar way = 1; way < IC_NUM_WAYS; way++) begin : gen_lowest_way
+
+  for (way = 1; way < IC_NUM_WAYS; way++) begin : gen_lowest_way
     assign lowest_invalid_way_ic1[way] = tag_invalid_ic1[way] & ~|tag_invalid_ic1[way-1:0];
     assign round_robin_way_ic1[way]    = round_robin_way_q[way-1];
   end
+endgenerate
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
@@ -401,6 +412,7 @@ module ibex_icache import ibex_pkg::*; #(
                                           round_robin_way_q;
 
   // ECC checking logic
+generate
   if (ICacheECC) begin : gen_data_ecc_checking
     // SEC_CM: ICACHE.MEM.INTEGRITY
     logic [IC_NUM_WAYS-1:0]     tag_err_ic1;
@@ -410,7 +422,7 @@ module ibex_icache import ibex_pkg::*; #(
     logic [IC_INDEX_W-1:0]      lookup_index_ic1, ecc_correction_index_q;
 
     // Tag ECC checking
-    for (genvar way = 0; way < IC_NUM_WAYS; way++) begin : gen_tag_ecc
+    for (way = 0; way < IC_NUM_WAYS; way++) begin : gen_tag_ecc
       logic [1:0]  tag_err_bank_ic1;
       logic [27:0] tag_rdata_padded_ic1;
 
@@ -430,7 +442,8 @@ module ibex_icache import ibex_pkg::*; #(
 
     // Data ECC checking
     // Note - could generate for all ways and mux after
-    for (genvar bank = 0; bank < IC_LINE_BEATS; bank++) begin : gen_ecc_banks
+    genvar bank;
+    for (bank = 0; bank < IC_LINE_BEATS; bank++) begin : gen_ecc_banks
       prim_secded_inv_39_32_dec data_ecc_dec (
         .data_i     (hit_data_ecc_ic1[bank*BusSizeECC+:BusSizeECC]),
         .data_o     (),
@@ -517,11 +530,13 @@ module ibex_icache import ibex_pkg::*; #(
 
     assign ecc_error_o = 1'b0;
   end
+endgenerate
 
   ///////////////////////////////
   // Cache allocation decision //
   ///////////////////////////////
 
+generate
   if (BranchCache) begin : gen_caching_logic
 
     // Cache branch target + a number of subsequent lines
@@ -548,6 +563,7 @@ module ibex_icache import ibex_pkg::*; #(
     // Cache all missing fetches
     assign fill_cache_new = icache_enable_i & ~inval_block_cache;
   end
+endgenerate
 
   //////////////////////////
   // Fill buffer tracking //
@@ -570,7 +586,9 @@ module ibex_icache import ibex_pkg::*; #(
   assign fill_spec_done = fill_spec_req & instr_gnt_i;
   assign fill_spec_hold = fill_spec_req & ~instr_gnt_i;
 
-  for (genvar fb = 0; fb < NUM_FB; fb++) begin : gen_fbs
+generate
+genvar fb;
+  for (fb = 0; fb < NUM_FB; fb++) begin : gen_fbs
 
     /////////////////////////////
     // Fill buffer allocations //
@@ -808,7 +826,8 @@ module ibex_icache import ibex_pkg::*; #(
     assign fill_data_d[fb] = fill_hit_ic1[fb] ? hit_data_ic1 :
                                                 {IC_LINE_BEATS{instr_rdata_i}};
 
-    for (genvar b = 0; b < IC_LINE_BEATS; b++) begin : gen_data_buf
+    genvar b;
+    for (b = 0; b < IC_LINE_BEATS; b++) begin : gen_data_buf
       // Error tracking (per beat)
       assign fill_err_d[fb][b]   = (fill_rvd_arb[fb] & instr_err_i &
                                     (fill_rvd_off[fb] == b[IC_LINE_BEATS_W-1:0])) |
@@ -847,6 +866,7 @@ module ibex_icache import ibex_pkg::*; #(
 
     end
   end
+endgenerate
 
   ////////////////////////////////
   // Fill buffer one-hot muxing //
@@ -938,6 +958,7 @@ module ibex_icache import ibex_pkg::*; #(
 
   assign skid_en     = data_valid & (ready_i | skid_ready);
 
+generate
   if (ResetAll) begin : g_skid_data_ra
     always_ff @(posedge clk_i or negedge rst_ni) begin
       if (!rst_ni) begin
@@ -956,6 +977,7 @@ module ibex_icache import ibex_pkg::*; #(
       end
     end
   end
+endgenerate
 
   // The data in the skid buffer is ready if it's a complete compressed instruction or if there's
   // an error (no need to wait for the second half)
@@ -1012,6 +1034,7 @@ module ibex_icache import ibex_pkg::*; #(
   // Redirect the address on branches
   assign output_addr_d = branch_i ? addr_i[31:1] : output_addr_incr;
 
+generate
   if (ResetAll) begin : g_output_addr_ra
     always_ff @(posedge clk_i or negedge rst_ni) begin
       if (!rst_ni) begin
@@ -1027,6 +1050,7 @@ module ibex_icache import ibex_pkg::*; #(
       end
     end
   end
+endgenerate
 
   // Mux the data from BUS_SIZE to halfword
   // This muxing realigns data when instruction words are split across BUS_W e.g.
@@ -1145,6 +1169,7 @@ module ibex_icache import ibex_pkg::*; #(
     end
   end
 
+generate
   if (ResetAll) begin : g_inval_index_ra
     always_ff @(posedge clk_i or negedge rst_ni) begin
       if (!rst_ni) begin
@@ -1160,6 +1185,7 @@ module ibex_icache import ibex_pkg::*; #(
       end
     end
   end
+endgenerate
 
   /////////////////
   // Busy status //

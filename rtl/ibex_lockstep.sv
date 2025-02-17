@@ -166,7 +166,7 @@ module ibex_lockstep import ibex_pkg::*; #(
   assign rst_shadow_set_single_bit = rst_shadow_set_q[0];
 
   // The primitives below are used to place size-only constraints in order to prevent
-  // synthesis optimizations and preserve anchor points for constraining backend tools.
+  // msg_synthesis optimizations and preserve anchor points for constraining backend tools.
   prim_flop #(
     .Width(IbexMuBiWidth),
     .ResetValue(IbexMuBiOff)

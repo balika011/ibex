@@ -154,6 +154,7 @@ module ibex_controller #(
   logic                     irq_nm_int;
   logic [31:0]              irq_nm_int_mtval;
   ibex_pkg::nmi_int_cause_e irq_nm_int_cause;
+  ibex_pkg::exc_cause_t     IntCauseIrqNm;
 
 
   logic [3:0] mfip_id;
@@ -236,6 +237,7 @@ module ibex_controller #(
   // Is there an instruction in ID or WB that has yet to complete?
   assign id_wb_pending = instr_valid_i | ~ready_wb_i;
 
+generate
   // Logic to determine which exception takes priority where multiple are possible.
   if (WritebackStage) begin : g_wb_exceptions
     always_comb begin
@@ -291,6 +293,7 @@ module ibex_controller #(
     end
     assign wb_exception_o = 1'b0;
   end
+endgenerate
 
   `ASSERT_IF(IbexExceptionPrioOnehot,
              $onehot({instr_fetch_err_prio,
@@ -309,6 +312,7 @@ module ibex_controller #(
   // All internal interrupts act as an NMI and go to the NMI vector. mcause is set based upon
   // irq_nm_int_cause.
 
+generate
   if (MemECC) begin : g_intg_irq_int
     logic        mem_resp_intg_err_irq_pending_q, mem_resp_intg_err_irq_pending_d;
     logic [31:0] mem_resp_intg_err_addr_q, mem_resp_intg_err_addr_d;
@@ -365,6 +369,7 @@ module ibex_controller #(
     assign irq_nm_int_cause = nmi_int_cause_e'(0);
     assign irq_nm_int_mtval = '0;
   end
+endgenerate
 
 
   // Enter debug mode due to an external debug_req_i or because the core is in
@@ -646,9 +651,9 @@ module ibex_controller #(
 
           // Prioritise interrupts as required by the architecture
           if (irq_nm && !nmi_mode_q) begin
+            IntCauseIrqNm = '{irq_ext: 1'b0, irq_int: 1'b1, lower_cause: irq_nm_int_cause};
             exc_cause_o =
-              irq_nm_ext_i ? ExcCauseIrqNm :
-                             '{irq_ext: 1'b0, irq_int: 1'b1, lower_cause: irq_nm_int_cause};
+              irq_nm_ext_i ? ExcCauseIrqNm : IntCauseIrqNm;
 
             if (irq_nm_int & !irq_nm_ext_i) begin
               csr_mtval_o = irq_nm_int_mtval;

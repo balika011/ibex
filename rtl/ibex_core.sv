@@ -388,6 +388,8 @@ module ibex_core import ibex_pkg::*; #(
 
   // Before going to sleep, wait for I- and D-side
   // interfaces to finish ongoing operations.
+generate
+genvar i;
   if (SecureIbex) begin : g_core_busy_secure
     // For secure Ibex, the individual bits of core_busy_o are generated from different copies of
     // the various busy signal.
@@ -402,7 +404,7 @@ module ibex_core import ibex_pkg::*; #(
     );
 
     // Set core_busy_o to IbexMuBiOn if even a single input is high.
-    for (genvar i = 0; i < $bits(ibex_mubi_t); i++) begin : g_core_busy_bits
+    for (i = 0; i < $bits(ibex_mubi_t); i++) begin : g_core_busy_bits
       if (IbexMuBiOn[i] == 1'b1) begin : g_pos
         assign core_busy_o[i] =  |busy_bits_buf[i*NumBusySignals +: NumBusySignals];
       end else begin : g_neg
@@ -413,6 +415,7 @@ module ibex_core import ibex_pkg::*; #(
     // For non secure Ibex, synthesis is allowed to optimize core_busy_o.
     assign core_busy_o = (ctrl_busy || if_busy || lsu_busy) ? IbexMuBiOn : IbexMuBiOff;
   end
+endgenerate
 
   //////////////
   // IF stage //
@@ -523,6 +526,7 @@ module ibex_core import ibex_pkg::*; #(
   `ASSERT_INIT(IbexMuBiSecureOffBottomBitClear, IbexMuBiOff[0] == 1'b0)
 
   // fetch_enable_i can be used to stop the core fetching new instructions
+generate
   if (SecureIbex) begin : g_instr_req_gated_secure
     // For secure Ibex fetch_enable_i must be a specific multi-bit pattern to enable instruction
     // fetch
@@ -537,6 +541,7 @@ module ibex_core import ibex_pkg::*; #(
     assign instr_req_gated = instr_req_int & fetch_enable_i[0];
     assign instr_exec      = fetch_enable_i[0];
   end
+endgenerate
 
   //////////////
   // ID stage //
@@ -857,6 +862,7 @@ module ibex_core import ibex_pkg::*; #(
     .instr_done_wb_o(instr_done_wb)
   );
 
+generate
   if (SecureIbex) begin : g_check_mem_response
     // For secure configurations only process load/store responses if we're expecting them to guard
     // against false responses being injected on to the bus
@@ -878,6 +884,7 @@ module ibex_core import ibex_pkg::*; #(
     assign unused_expecting_load_resp_id  = expecting_load_resp_id;
     assign unused_expecting_store_resp_id = expecting_store_resp_id;
   end
+endgenerate
 
   /////////////////////////////
   // Register file interface //
@@ -890,6 +897,7 @@ module ibex_core import ibex_pkg::*; #(
   assign rf_we_wb_o       = rf_we_wb;
   assign rf_raddr_b_o     = rf_raddr_b;
 
+generate
   if (RegFileECC) begin : gen_regfile_ecc
 
     // SEC_CM: DATA_REG_SW.INTEGRITY
@@ -940,6 +948,7 @@ module ibex_core import ibex_pkg::*; #(
     assign rf_rdata_b              = rf_rdata_b_ecc_i;
     assign rf_ecc_err_comb         = 1'b0;
   end
+endgenerate
 
   ///////////////////////
   // Crash dump output //
@@ -978,6 +987,7 @@ module ibex_core import ibex_pkg::*; #(
   assign outstanding_store_id = id_stage_i.instr_executing & id_stage_i.lsu_req_dec &
                                 id_stage_i.lsu_we;
 
+generate
   if (WritebackStage) begin : gen_wb_stage
     // When the writeback stage is present a load/store could be in ID or WB. A Load/store in ID can
     // see a response before it moves to WB when it is unaligned otherwise we should only see
@@ -998,6 +1008,7 @@ module ibex_core import ibex_pkg::*; #(
 
     `ASSERT(NoMemRFWriteWithoutPendingLoad, rf_we_lsu |-> outstanding_load_id, clk_i, !rst_ni)
   end
+endgenerate
 
   `ASSERT(NoMemResponseWithoutPendingAccess,
     data_rvalid_i |-> outstanding_load_resp | outstanding_store_resp, clk_i, !rst_ni)
@@ -1167,6 +1178,7 @@ module ibex_core import ibex_pkg::*; #(
       })
   `ASSERT_KNOWN_IF(IbexCsrWdataIntKnown, cs_registers_i.csr_wdata_int, csr_op_en)
 
+generate
   if (PMPEnable) begin : g_pmp
     logic [31:0] pc_if_inc;
     logic [33:0] pmp_req_addr [PMPNumChan];
@@ -1218,6 +1230,7 @@ module ibex_core import ibex_pkg::*; #(
     assign pmp_req_err[PMP_I2] = 1'b0;
     assign pmp_req_err[PMP_D]  = 1'b0;
   end
+endgenerate
 
 `ifdef RVFI
   // When writeback stage is present RVFI information is emitted when instruction is finished in
@@ -1384,6 +1397,7 @@ module ibex_core import ibex_pkg::*; #(
   assign rvfi_id_done = instr_id_done | (id_stage_i.controller_i.rvfi_flush_next &
                                          id_stage_i.controller_i.id_exception_o);
 
+generate
   if (WritebackStage) begin : gen_rvfi_wb_stage
     logic unused_instr_new_id;
 
@@ -1433,6 +1447,7 @@ module ibex_core import ibex_pkg::*; #(
     assign rvfi_trap_wb = 1'b0;
     assign rvfi_wb_done = instr_done_wb;
   end
+endgenerate
 
   assign rvfi_stage_order_d = dummy_instr_id ? rvfi_stage_order[0] : rvfi_stage_order[0] + 64'd1;
 
@@ -1536,7 +1551,9 @@ module ibex_core import ibex_pkg::*; #(
 
   // rvfi_irq_valid signals an interrupt event to the cosim. These should only occur when the RVFI
   // pipe is empty so just send it straigh through.
-  for (genvar i = 0; i < RVFI_STAGES + 1; i = i + 1) begin : g_rvfi_irq_valid
+generate
+genvar i;
+  for (i = 0; i < RVFI_STAGES + 1; i = i + 1) begin : g_rvfi_irq_valid
     if (i == 0) begin : g_rvfi_irq_valid_first_stage
       always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
@@ -1555,7 +1572,10 @@ module ibex_core import ibex_pkg::*; #(
       end
     end
   end
+endgenerate
 
+generate
+genvar i;
   for (genvar i = 0; i < RVFI_STAGES; i = i + 1) begin : g_rvfi_stages
     always_ff @(posedge clk_i or negedge rst_ni) begin
       if (!rst_ni) begin
@@ -1693,6 +1713,7 @@ module ibex_core import ibex_pkg::*; #(
       end
     end
   end
+endgenerate
 
 
   // Memory address/write data available first cycle of ld/st instruction from register read
@@ -1812,6 +1833,7 @@ module ibex_core import ibex_pkg::*; #(
     end
   end
 
+generate
   if (WritebackStage) begin : g_rvfi_rf_wr_suppress_wb
     logic rvfi_stage_rf_wr_suppress_wb;
     logic rvfi_rf_wr_suppress_wb;
@@ -1832,6 +1854,7 @@ module ibex_core import ibex_pkg::*; #(
   end else begin : g_rvfi_no_rf_wr_suppress_wb
     assign rvfi_ext_rf_wr_suppress = 1'b0;
   end
+endgenerate
 
   // rvfi_intr must be set for first instruction that is part of a trap handler.
   // On the first cycle of a new instruction see if a trap PC was set by the previous instruction,

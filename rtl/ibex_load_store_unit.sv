@@ -332,6 +332,7 @@ module ibex_load_store_unit #(
   ///////////////////////////////
 
   // SEC_CM: BUS.INTEGRITY
+generate
   if (MemECC) begin : g_mem_rdata_ecc
     logic [1:0] ecc_err;
     logic [MemDataWidth-1:0] data_rdata_buf;
@@ -353,6 +354,7 @@ module ibex_load_store_unit #(
   end else begin : g_no_mem_data_ecc
     assign data_intg_err = 1'b0;
   end
+endgenerate
 
   /////////////
   // LSU FSM //
@@ -526,6 +528,7 @@ module ibex_load_store_unit #(
   /////////////////////////////////////
 
   // SEC_CM: BUS.INTEGRITY
+generate
   if (MemECC) begin : g_mem_wdata_ecc
     prim_secded_inv_39_32_enc u_data_gen (
       .data_i (data_wdata),
@@ -534,6 +537,7 @@ module ibex_load_store_unit #(
   end else begin : g_no_mem_wdata_ecc
     assign data_wdata_o = data_wdata;
   end
+endgenerate
 
   // output to ID stage: mtval + AGU for misaligned transactions
   assign addr_last_o   = addr_last_q;
@@ -568,10 +572,10 @@ module ibex_load_store_unit #(
   // Set when the first half of a misaligned access saw a bus errror
   logic fcov_mis_bus_err_1_d, fcov_mis_bus_err_1_q;
 
-  assign fcov_mis_rvalid_1 = ls_fsm_cs inside {WAIT_RVALID_MIS, WAIT_RVALID_MIS_GNTS_DONE} &&
+  assign fcov_mis_rvalid_1 = ((ls_fsm_cs == WAIT_RVALID_MIS) || (ls_fsm_cs == WAIT_RVALID_MIS_GNTS_DONE)) &&
                                 data_rvalid_i;
 
-  assign fcov_mis_rvalid_2 = ls_fsm_cs inside {IDLE} && fcov_mis_2_en_q && data_rvalid_i;
+  assign fcov_mis_rvalid_2 = (ls_fsm_cs == IDLE) && fcov_mis_2_en_q && data_rvalid_i;
 
   assign fcov_mis_2_en_d = fcov_mis_rvalid_2 ? 1'b0            :  // clr
                            fcov_mis_rvalid_1 ? 1'b1            :  // set

@@ -141,6 +141,7 @@ module ibex_decoder #(
   // immediate for CSR manipulation (zero extended)
   assign zimm_rs1_type_o = { 27'b0, instr_rs1 }; // rs1
 
+generate
   if (RV32B != RV32BNone) begin : gen_rs3_flop
     // the use of rs3 is known one cycle ahead.
     always_ff  @(posedge clk_i or negedge rst_ni) begin
@@ -161,6 +162,7 @@ module ibex_decoder #(
     // always zero
     assign use_rs3_q = use_rs3_d;
   end
+endgenerate
 
   // source registers
   assign instr_rs1 = instr[19:15];
@@ -176,6 +178,7 @@ module ibex_decoder #(
   ////////////////////
   // Register check //
   ////////////////////
+generate
   if (RV32E) begin : gen_rv32e_reg_check_active
     assign illegal_reg_rv32e = ((rf_raddr_a_o[4] & (alu_op_a_mux_sel_o == OP_A_REG_A)) |
                                 (rf_raddr_b_o[4] & (alu_op_b_mux_sel_o == OP_B_REG_B)) |
@@ -183,6 +186,7 @@ module ibex_decoder #(
   end else begin : gen_rv32e_reg_check_inactive
     assign illegal_reg_rv32e = 1'b0;
   end
+endgenerate
 
   ///////////////////////
   // CSR operand check //

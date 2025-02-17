@@ -35,6 +35,7 @@ module ibex_csr #(
 
   assign rd_data_o = rdata_q;
 
+generate
   if (ShadowCopy) begin : gen_shadow
     logic [Width-1:0] shadow_q;
 
@@ -51,6 +52,7 @@ module ibex_csr #(
   end else begin : gen_no_shadow
     assign rd_error_o = 1'b0;
   end
+endgenerate
 
   `ASSERT_KNOWN(IbexCSREnValid, wr_en_i)
 

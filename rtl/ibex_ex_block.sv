@@ -73,11 +73,13 @@ module ibex_ex_block #(
     At synthesis time, all the combinational and sequential logic
     from the multdiv_i module are eliminated
   */
+generate
   if (RV32M != RV32MNone) begin : gen_multdiv_m
     assign multdiv_sel = mult_sel_i | div_sel_i;
   end else begin : gen_multdiv_no_m
     assign multdiv_sel = 1'b0;
   end
+endgenerate
 
   // Intermediate Value Register Mux
   assign imd_val_d_o[0] = multdiv_sel ? multdiv_imd_val_d[0] : {2'b0, alu_imd_val_d[0]};
@@ -91,6 +93,7 @@ module ibex_ex_block #(
   // branch handling
   assign branch_decision_o  = alu_cmp_result;
 
+generate
   if (BranchTargetALU) begin : g_branch_target_alu
     logic [32:0] bt_alu_result;
     logic        unused_bt_carry;
@@ -108,6 +111,7 @@ module ibex_ex_block #(
 
     assign branch_target_o = alu_adder_result_ex_o;
   end
+endgenerate
 
   /////////
   // ALU //
@@ -137,6 +141,7 @@ module ibex_ex_block #(
   // Multiplier //
   ////////////////
 
+generate
   if (RV32M == RV32MSlow) begin : gen_multdiv_slow
     ibex_multdiv_slow multdiv_i (
       .clk_i             (clk_i),
@@ -190,6 +195,7 @@ module ibex_ex_block #(
       .multdiv_result_o  (multdiv_result)
     );
   end
+endgenerate
 
   // Multiplier/divider may require multiple cycles. The ALU output is valid in the same cycle
   // unless the intermediate result register is being written (which indicates this isn't the

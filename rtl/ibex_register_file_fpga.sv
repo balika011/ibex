@@ -54,6 +54,7 @@ module ibex_register_file_fpga #(
   logic oh_raddr_a_err, oh_raddr_b_err, oh_we_err;
   assign err_o = oh_raddr_a_err || oh_raddr_b_err || oh_we_err;
 
+generate
   if (RdataMuxCheck) begin : gen_rdata_mux_check
     // Encode raddr_a/b into one-hot encoded signals.
     logic [NUM_WORDS-1:0] raddr_onehot_a, raddr_onehot_b;
@@ -156,18 +157,21 @@ module ibex_register_file_fpga #(
     assign oh_raddr_a_err = 1'b0;
     assign oh_raddr_b_err = 1'b0;
   end
+endgenerate
 
   // we select
   assign we = (waddr_a_i == '0) ? 1'b0 : we_a_i;
 
   // SEC_CM: DATA_REG_SW.GLITCH_DETECT
   // This checks for spurious WE strobes on the regfile.
+generate
   if (WrenCheck) begin : gen_wren_check
     // Since the FPGA uses a memory macro, there is only one write-enable strobe to check.
     assign oh_we_err = we && !we_a_i;
   end else begin : gen_no_wren_check
     assign oh_we_err = 1'b0;
   end
+endgenerate
 
   // Note that the SystemVerilog LRM requires variables on the LHS of assignments within
   // "always_ff" to not be written to by any other process. However, to enable the initialization

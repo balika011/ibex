@@ -62,6 +62,7 @@ module ibex_counter #(
   logic [CounterWidth-1:0] counter_q;
 `endif
 
+generate
   if (UseDsp == "yes") begin : g_cnt_dsp
     // Use sync. reset for DSP.
     always_ff @(posedge clk_i) begin
@@ -81,8 +82,9 @@ module ibex_counter #(
       end
     end
   end
+endgenerate
 
-
+generate
   if (CounterWidth < 64) begin : g_counter_narrow
     logic [63:CounterWidth] unused_counter_load;
 
@@ -105,6 +107,7 @@ module ibex_counter #(
       assign counter_val_upd_o = '0;
     end
   end
+endgenerate
 
   assign counter_val_o = counter;
 

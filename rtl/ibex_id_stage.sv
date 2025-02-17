@@ -322,6 +322,7 @@ module ibex_id_stage #(
     endcase
   end
 
+generate
   if (BranchTargetALU) begin : g_btalu_muxes
     // Branch target ALU operand A mux
     always_comb begin : bt_operand_a_mux
@@ -391,6 +392,7 @@ module ibex_id_stage #(
         IMM_B_INCR_PC,
         IMM_B_INCR_ADDR})
   end
+endgenerate
 
   // ALU MUX for Operand B
   assign alu_operand_b = (alu_op_b_mux_sel == OP_B_IMM) ? imm_b : rf_rdata_b_fwd;
@@ -399,7 +401,9 @@ module ibex_id_stage #(
   // Multicycle Operation Stage Register //
   /////////////////////////////////////////
 
-  for (genvar i = 0; i < 2; i++) begin : gen_intermediate_val_reg
+generate
+genvar i;
+  for (i = 0; i < 2; i++) begin : gen_intermediate_val_reg
     always_ff @(posedge clk_i or negedge rst_ni) begin : intermediate_val_reg
       if (!rst_ni) begin
         imd_val_q[i] <= '0;
@@ -408,6 +412,7 @@ module ibex_id_stage #(
       end
     end
   end
+endgenerate
 
   assign imd_val_q_ex_o = imd_val_q;
 
@@ -683,6 +688,7 @@ module ibex_id_stage #(
   // Branch set control //
   ////////////////////////
 
+generate
   if (BranchTargetALU && !DataIndTiming) begin : g_branch_set_direct
     // Branch set fed straight to controller with branch target ALU
     // (condition pass/fail used same cycle as generated instruction request)
@@ -708,6 +714,7 @@ module ibex_id_stage #(
                                                                            branch_set_raw_q;
 
   end
+endgenerate
 
   // Track whether the current instruction in ID/EX has done a branch or jump set.
   assign branch_jump_set_done_d = (branch_set_raw | jump_set_raw | branch_jump_set_done_q) &
@@ -733,6 +740,7 @@ module ibex_id_stage #(
 
   // Branch condition is calculated in the first cycle and flopped for use in the second cycle
   // (only used in fixed time execution mode to determine branch destination).
+generate
   if (DataIndTiming) begin : g_sec_branch_taken
     // SEC_CM: CORE.DATA_REG_SW.SCA
     logic branch_taken_q;
@@ -754,6 +762,7 @@ module ibex_id_stage #(
     assign branch_taken = 1'b1;
 
   end
+endgenerate
 
   // Holding branch_set/jump_set high for more than one cycle should not cause a functional issue.
   // However it could generate needless prefetch buffer flushes and instruction fetches. The ID/EX
@@ -764,12 +773,13 @@ module ibex_id_stage #(
   //////////////////////////////
   // Branch not-taken address //
   //////////////////////////////
-
+generate
   if (BranchPredictor) begin : g_calc_nt_addr
     assign nt_branch_addr_o = pc_id_i + (instr_is_compressed_i ? 32'd2 : 32'd4);
   end else begin : g_n_calc_nt_addr
     assign nt_branch_addr_o = 32'd0;
   end
+endgenerate
 
   ///////////////
   // ID-EX FSM //
@@ -908,6 +918,7 @@ module ibex_id_stage #(
   // Used by ALU to access RS3 if ternary instruction.
   assign instr_first_cycle_id_o = instr_first_cycle;
 
+generate
   if (WritebackStage) begin : gen_stall_mem
     // Register read address matches write address in WB
     logic rf_rd_a_wb_match;
@@ -1087,6 +1098,7 @@ module ibex_id_stage #(
 
     assign instr_id_done_o = instr_done;
   end
+endgenerate
 
   // Signal which instructions to count as retired in minstret, all traps along with ebrk and
   // ecall instructions are not counted.

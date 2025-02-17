@@ -137,6 +137,7 @@ module ibex_multdiv_fast #(
 
   // The single cycle multiplier uses three 17 bit multipliers to compute MUL instructions in a
   // single cycle and MULH instructions in two cycles.
+generate
   if (RV32M == RV32MSingleCycle) begin : gen_mult_single_cycle
 
     typedef enum logic {
@@ -380,6 +381,7 @@ module ibex_multdiv_fast #(
     assign sva_mul_fsm_idle = mult_state_q == ALBL;
 
   end // gen_mult_fast
+endgenerate
 
   // Divider
   assign res_adder_h    = alu_adder_ext_i[32:1];

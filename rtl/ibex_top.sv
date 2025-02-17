@@ -212,6 +212,7 @@ module ibex_top import ibex_pkg::*; #(
   // Main clock gate //
   /////////////////////
 
+generate
   if (SecureIbex) begin : g_clock_en_secure
     // For secure Ibex core_busy_q must be a specific multi-bit pattern to enable the clock.
     prim_flop #(
@@ -239,6 +240,7 @@ module ibex_top import ibex_pkg::*; #(
     logic unused_core_busy;
     assign unused_core_busy = ^core_busy_q[$bits(ibex_mubi_t)-1:1];
   end
+endgenerate
 
   assign core_sleep_o = ~clock_en;
 
@@ -275,6 +277,7 @@ module ibex_top import ibex_pkg::*; #(
   assign data_rdata_core[31:0] = data_rdata_i;
   assign instr_rdata_core[31:0] = instr_rdata_i;
 
+generate
   if (MemECC) begin : gen_mem_rdata_ecc
     assign data_rdata_core[38:32] = data_rdata_intg_i;
     assign instr_rdata_core[38:32] = instr_rdata_intg_i;
@@ -283,6 +286,7 @@ module ibex_top import ibex_pkg::*; #(
 
     assign unused_intg = ^{instr_rdata_intg_i, data_rdata_intg_i};
   end
+endgenerate
 
   ibex_core #(
     .PMPEnable        (PMPEnable),
@@ -427,6 +431,7 @@ module ibex_top import ibex_pkg::*; #(
   /////////////////////////////////
 
   logic rf_alert_major_internal;
+generate
   if (RegFile == RegFileFF) begin : gen_regfile_ff
     ibex_register_file_ff #(
       .RV32E            (RV32E),
@@ -506,11 +511,12 @@ module ibex_top import ibex_pkg::*; #(
       .err_o    (rf_alert_major_internal)
     );
   end
+endgenerate
 
   ///////////////////////////////
   // Scrambling Infrastructure //
   ///////////////////////////////
-
+generate
   if (ICacheScramble) begin : gen_scramble
 
     // SEC_CM: ICACHE.MEM.SCRAMBLE
@@ -547,9 +553,9 @@ module ibex_top import ibex_pkg::*; #(
 
   end else begin : gen_noscramble
 
-    logic unused_scramble_inputs = scramble_key_valid_i & (|scramble_key_i) & (|RndCnstIbexKey) &
+    /*logic unused_scramble_inputs = scramble_key_valid_i & (|scramble_key_i) & (|RndCnstIbexKey) &
                                    (|scramble_nonce_i) & (|RndCnstIbexNonce) & scramble_req_q &
-                                   ic_scr_key_req & scramble_key_valid_d & scramble_req_d;
+                                   ic_scr_key_req & scramble_key_valid_d & scramble_req_d;*/
 
     assign scramble_req_d       = 1'b0;
     assign scramble_req_q       = 1'b0;
@@ -559,6 +565,7 @@ module ibex_top import ibex_pkg::*; #(
     assign scramble_key_valid_q = 1'b1;
     assign scramble_key_valid_d = 1'b1;
   end
+endgenerate
 
   ////////////////////////
   // Rams Instantiation //
@@ -567,9 +574,11 @@ module ibex_top import ibex_pkg::*; #(
   logic [IC_NUM_WAYS-1:0] icache_tag_alert;
   logic [IC_NUM_WAYS-1:0] icache_data_alert;
 
+generate
+genvar way;
   if (ICache) begin : gen_rams
 
-    for (genvar way = 0; way < IC_NUM_WAYS; way++) begin : gen_rams_inner
+    for (way = 0; way < IC_NUM_WAYS; way++) begin : gen_rams_inner
 
       if (ICacheScramble) begin : gen_scramble_rams
 
@@ -740,9 +749,11 @@ module ibex_top import ibex_pkg::*; #(
     assign icache_tag_alert  = '{default:'b0};
     assign icache_data_alert = '{default:'b0};
   end
+endgenerate
 
   assign data_wdata_o = data_wdata_core[31:0];
 
+generate
   if (MemECC) begin : gen_mem_wdata_ecc
     prim_buf #(.Width(7)) u_prim_buf_data_wdata_intg (
       .in_i (data_wdata_core[38:32]),
@@ -751,8 +762,11 @@ module ibex_top import ibex_pkg::*; #(
   end else begin : gen_no_mem_ecc
     assign data_wdata_intg_o = '0;
   end
+endgenerate
 
   // Redundant lockstep core implementation
+generate
+genvar k;
   if (Lockstep) begin : gen_lockstep
     // SEC_CM: LOGIC.SHADOW
     // Note: certain synthesis tools like DC are very smart at optimizing away redundant logic.
@@ -976,7 +990,7 @@ module ibex_top import ibex_pkg::*; #(
 
     logic [TagSizeECC-1:0]  ic_tag_rdata_local [IC_NUM_WAYS];
     logic [LineSizeECC-1:0] ic_data_rdata_local [IC_NUM_WAYS];
-    for (genvar k = 0; k < IC_NUM_WAYS; k++) begin : gen_ways
+    for (k = 0; k < IC_NUM_WAYS; k++) begin : gen_ways
       prim_buf #(.Width(TagSizeECC)) u_tag_prim_buf (
         .in_i(ic_tag_rdata[k]),
         .out_o(ic_tag_rdata_local[k])
@@ -1113,6 +1127,7 @@ module ibex_top import ibex_pkg::*; #(
     logic unused_scan;
     assign unused_scan = scan_rst_ni;
   end
+endgenerate
 
   // Enable or disable iCache multi bit encoding checking error generation.
   // If enabled and a MuBi encoding error is detected, raise a major alert.

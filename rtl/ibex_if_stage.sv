@@ -222,6 +222,7 @@ module ibex_if_stage import ibex_pkg::*; #(
   assign csr_mtvec_init_o = (pc_mux_i == PC_BOOT) & pc_set_i;
 
   // SEC_CM: BUS.INTEGRITY
+generate
   if (MemECC) begin : g_mem_ecc
     logic [1:0] ecc_err;
     logic [MemDataWidth-1:0] instr_rdata_buf;
@@ -243,6 +244,7 @@ module ibex_if_stage import ibex_pkg::*; #(
   end else begin : g_no_mem_ecc
     assign instr_intg_err            = 1'b0;
   end
+endgenerate
 
   assign instr_err        = instr_intg_err | instr_bus_err_i;
   assign instr_intg_err_o = instr_intg_err & instr_rvalid_i;
@@ -261,6 +263,7 @@ module ibex_if_stage import ibex_pkg::*; #(
   // cancels any predicted branch so overall branch_req must be low.
   `ASSERT(NoMispredBranch, nt_branch_mispredict_i |-> ~branch_req)
 
+generate
   if (ICache) begin : gen_icache
     // Full I-Cache option
     ibex_icache #(
@@ -375,6 +378,7 @@ module ibex_if_stage import ibex_pkg::*; #(
     endfunction
 `endif
   end
+endgenerate
 
   assign unused_fetch_addr_n0 = fetch_addr_n[0];
 
@@ -412,6 +416,7 @@ module ibex_if_stage import ibex_pkg::*; #(
   );
 
   // Dummy instruction insertion
+generate
   if (DummyInstructions) begin : gen_dummy_instr
     // SEC_CM: CTRL_FLOW.UNPREDICTABLE
     logic        insert_dummy_instr;
@@ -470,6 +475,7 @@ module ibex_if_stage import ibex_pkg::*; #(
     assign stall_dummy_instr       = 1'b0;
     assign dummy_instr_id_o        = 1'b0;
   end
+endgenerate
 
   // The ID stage becomes valid as soon as any instruction is registered in the ID stage flops.
   // Note that the current instruction is squashed by the incoming pc_set_i signal.
@@ -495,6 +501,7 @@ module ibex_if_stage import ibex_pkg::*; #(
   // IF-ID pipeline registers, frozen when the ID stage is stalled
   assign if_id_pipe_reg_we = instr_new_id_d;
 
+generate
   if (ResetAll) begin : g_instr_rdata_ra
     always_ff @(posedge clk_i or negedge rst_ni) begin
       if (!rst_ni) begin
@@ -533,8 +540,10 @@ module ibex_if_stage import ibex_pkg::*; #(
       end
     end
   end
+endgenerate
 
   // Check for expected increments of the PC when security hardening enabled
+generate
   if (PCIncrCheck) begin : g_secure_pc
     // SEC_CM: PC.CTRL_FLOW.CONSISTENCY
     logic [31:0] prev_instr_addr_incr, prev_instr_addr_incr_buf;
@@ -567,7 +576,9 @@ module ibex_if_stage import ibex_pkg::*; #(
   end else begin : g_no_secure_pc
     assign pc_mismatch_alert_o = 1'b0;
   end
+endgenerate
 
+generate
   if (BranchPredictor) begin : g_branch_predictor
     logic [31:0] instr_skid_data_q;
     logic [31:0] instr_skid_addr_q;
@@ -681,6 +692,7 @@ module ibex_if_stage import ibex_pkg::*; #(
     assign if_instr_bus_err = fetch_err;
     assign fetch_ready = id_in_ready_i & ~stall_dummy_instr;
   end
+endgenerate
 
   //////////
   // FCOV //
@@ -701,6 +713,7 @@ module ibex_if_stage import ibex_pkg::*; #(
   // Selectors must be known/valid.
   `ASSERT_KNOWN(IbexExcPcMuxKnown, exc_pc_mux_i)
 
+generate
   if (BranchPredictor) begin : g_branch_predictor_asserts
     `ASSERT_IF(IbexPcMuxValid, pc_mux_internal inside {
         PC_BOOT,
@@ -800,6 +813,7 @@ module ibex_if_stage import ibex_pkg::*; #(
         PC_DRET},
       pc_set_i)
   end
+endgenerate
 
   // Boot address must be aligned to 256 bytes.
   `ASSERT(IbexBootAddrUnaligned, boot_addr_i[7:0] == 8'h00)

@@ -68,6 +68,7 @@ module ibex_wb_stage #(
   logic [31:0] rf_wdata_wb_mux    [2];
   logic [1:0]  rf_wdata_wb_mux_we;
 
+generate
   if (WritebackStage) begin : g_writeback_stage
     logic [31:0]    rf_wdata_wb_q;
     logic           rf_we_wb_q;
@@ -237,6 +238,7 @@ module ibex_wb_stage #(
     assign rf_wdata_fwd_wb_o      = 32'b0;
     assign instr_done_wb_o        = 1'b0;
   end
+endgenerate
 
   assign rf_wdata_wb_mux[1] = rf_wdata_lsu_i;
 

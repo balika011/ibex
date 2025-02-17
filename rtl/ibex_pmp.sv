@@ -155,7 +155,9 @@ module ibex_pmp #(
   // Access checking
   // ---------------
 
-  for (genvar r = 0; r < PMPNumRegions; r++) begin : g_addr_exp
+generate
+genvar r, b;
+  for (r = 0; r < PMPNumRegions; r++) begin : g_addr_exp
     // Start address for TOR matching
     if (r == 0) begin : g_entry0
       assign region_start_addr[r] = (csr_pmp_cfg_i[r].mode == PMP_MODE_TOR) ? 34'h000000000 :
@@ -165,7 +167,7 @@ module ibex_pmp #(
                                                                               csr_pmp_addr_i[r];
     end
     // Address mask for NA matching
-    for (genvar b = PMPGranularity + 2; b < 34; b++) begin : g_bitmask
+    for (b = PMPGranularity + 2; b < 34; b++) begin : g_bitmask
       if (b == 2) begin : g_bit0
         // Always mask bit 2 for NAPOT
         assign region_addr_mask[r][b] = (csr_pmp_cfg_i[r].mode != PMP_MODE_NAPOT);
@@ -186,8 +188,9 @@ module ibex_pmp #(
     end
   end
 
-  for (genvar c = 0; c < PMPNumChan; c++) begin : g_access_check
-    for (genvar r = 0; r < PMPNumRegions; r++) begin : g_regions
+genvar c;
+  for (c = 0; c < PMPNumChan; c++) begin : g_access_check
+    for (r = 0; r < PMPNumRegions; r++) begin : g_regions
       // Comparators are sized according to granularity
       assign region_match_eq[c][r] = (pmp_req_addr_i[c][33:PMPGranularity+2] &
                                       region_addr_mask[r]) ==
@@ -255,6 +258,7 @@ module ibex_pmp #(
     `DV_FCOV_SIGNAL(logic, pmp_region_override,
       ~pmp_req_err_o[c] & |(region_match_all[c] & ~region_perm_check[c]))
   end
+endgenerate
 
   // RLB, rule locking bypass, is only relevant to ibex_cs_registers which controls writes to the
   // PMP CSRs. Tie to unused signal here to prevent lint warnings.
