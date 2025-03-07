@@ -58,6 +58,7 @@ module ibex_register_file_ff #(
     end
   end
 
+generate
   // SEC_CM: DATA_REG_SW.GLITCH_DETECT
   // This checks for spurious WE strobes on the regfile.
   if (WrenCheck) begin : gen_wren_check
@@ -89,8 +90,9 @@ module ibex_register_file_ff #(
     assign oh_we_err = 1'b0;
   end
 
+genvar i;
   // No flops for R0 as it's hard-wired to 0
-  for (genvar i = 1; i < NUM_WORDS; i++) begin : g_rf_flops
+  for (i = 1; i < NUM_WORDS; i++) begin : g_rf_flops
     logic [DataWidth-1:0] rf_reg_q;
 
     always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -231,6 +233,7 @@ module ibex_register_file_ff #(
     assign oh_raddr_a_err = 1'b0;
     assign oh_raddr_b_err = 1'b0;
   end
+endgenerate
 
   assign err_o = oh_raddr_a_err || oh_raddr_b_err || oh_we_err;
 

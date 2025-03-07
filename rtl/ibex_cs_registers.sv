@@ -1344,6 +1344,8 @@ endgenerate
     end
   end
 
+generate
+if (MHPMCounterNum > 0) begin
   // mcycle
   ibex_counter #(
     .CounterWidth(64)
@@ -1373,6 +1375,8 @@ endgenerate
     .counter_val_o(minstret_raw),
     .counter_val_upd_o(minstret_next)
   );
+end
+endgenerate
 
   // Where the writeback stage is present instruction in ID observing value of minstret must take
   // into account any instruction in the writeback stage. If one is present the incremented value of
